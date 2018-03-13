@@ -5,8 +5,8 @@
 # CC-BY-2.0 Paul Balzer
 # see: http://www.cbcity.de/deep-learning-tensorflow-dnnregressor-einfach-erklaert
 #
-TRAINING = False
-WITHPLOT = True
+TRAINING = True
+WITHPLOT = False
 
 # Import Stuff
 import tensorflow.contrib.learn as skflow
@@ -68,18 +68,15 @@ EPOCHS = 1000
 BATCH_SIZE = 100
 
 list_of_hl=[
-            [16, 16, 16, 16, 16],
-            [16*5],
             [16*16, 16*16, 16],
-            [8,8,8,8,8,8,8,8,8,8]
+            [16,16,16,16,16]
         ]
-dropout = 0.0
-
+dropout=0.0
 for hidden_layers in list_of_hl:
     MODEL_PATH='./sin_dnn/'
     for hl in hidden_layers:
         MODEL_PATH += '%s_' % hl
-    MODEL_PATH += 'D0%s' % (int(dropout*10))
+    MODEL_PATH += 'D0%s' % (int(dropout*100))
     logging.info('Saving to %s' % MODEL_PATH)
 
     # Validation and Test Configuration
@@ -114,7 +111,7 @@ for hidden_layers in list_of_hl:
             
             # This is just for fun and educational purpose:
             # Evaluate the DNNRegressor every 10th epoch
-            if epoch%100==0:
+            if epoch%50==0:
                 eval_dict = regressor.evaluate(input_fn=test_input_fn(),
                                             metrics=validation_metrics)
                     
@@ -188,4 +185,4 @@ for hidden_layers in list_of_hl:
                 ax2.set_ylim([-tmp1*1.1,tmp1*1.1])
                 plt.close()
         except:
-            logging.Error('Prediction failed! Maybe first train a model?')
+            logging.error('Prediction failed! Maybe first train a model?')
