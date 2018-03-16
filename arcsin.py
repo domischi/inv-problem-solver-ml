@@ -34,13 +34,17 @@ f = lambda x: np.sin(x)
 # Generate the 'features'
 #X = np.linspace(0, 1, 1000001).reshape((-1, 1))
 INPUT_SHAPE=(1,)
-x_min=-np.pi
-x_max= np.pi
+x_min=-np.pi/2
+x_max= np.pi/2
 X = np.linspace(x_min,x_max,1001)
 
-X_plot = np.linspace(x_min, x_max)
+X_plot = np.linspace(-1,1,1001)
 # Generate the 'labels'
 y = f(X)
+
+# Swap to train inverse
+
+X,y=y,X
 
 # Train/Test Dataset for Validation
 X_train,X_test,y_train,y_test = train_test_split(X, y,
@@ -79,7 +83,7 @@ list_of_hl=[
         ]
 for dropout in [0.,.05,.1]:
     for hidden_layers in list_of_hl:
-        MODEL_PATH='./sin_dnn/'
+        MODEL_PATH='./arcsin_dnn/'
         for hl in hidden_layers:
             MODEL_PATH += '%s_' % hl
         MODEL_PATH += 'D0%s' % (int(dropout*100))
@@ -124,7 +128,7 @@ for dropout in [0.,.05,.1]:
             logging.info('No training today, just prediction')
             #try:
             # Prediction
-            y_pred = f(X_plot)
+            y_pred = np.arcsin(X_plot)
             # Get trained values out of the Network
             if PRINT_VARIABLES:
                 for variable_name in regressor.get_variable_names():
