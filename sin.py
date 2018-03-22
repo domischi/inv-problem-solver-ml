@@ -5,10 +5,11 @@
 # CC-BY-2.0 Paul Balzer
 # see: http://www.cbcity.de/deep-learning-tensorflow-dnnregressor-einfach-erklaert
 #
-TRAINING = False
+TRAINING = True
 #WITHPLOT = False
 WITHPLOT = not TRAINING
 PRINT_VARIABLES=False
+LEARN_INVERSE=False
 
 # Import Stuff
 import tensorflow.contrib.learn as skflow
@@ -30,46 +31,53 @@ logging.info('Tensorflow %s' % tf.__version__) # 1.4.1
 # This is the magic function which the Deep Neural Network
 # has to 'learn' (see http://neuralnetworksanddeeplearning.com/chap4.html)
 f = lambda x: np.sin(x)
-
 # Generate the 'features'
-#X = np.linspace(0, 1, 1000001).reshape((-1, 1))
 INPUT_SHAPE=(1,)
 x_min=-np.pi
 x_max= np.pi
-X = np.linspace(x_min,x_max,1001)
-
-X_plot = np.linspace(x_min, x_max)
-# Generate the 'labels'
-y = f(X)
-
-# Train/Test Dataset for Validation
-X_train,X_test,y_train,y_test = train_test_split(X, y,
-						test_size=0.1,
-						random_state=2)
-
-TRAIN_SET=pd.DataFrame({'X': X_train, 'y': y_train})
-TEST_SET=pd.DataFrame({'X': X_test, 'y': y_test})
-PREDICT_SET=pd.DataFrame({'X': X_plot, 'y':np.array([np.NaN]*len(X_plot))})
 
 FEATURES=['X']
 LABEL=['y']
 
 
+def get_XY(SAMPLE_SIZE,LEARN_INVERSE=False):
+    X=np.random.rand(SAMPLE_SIZE)*(x_max-x_min)+x_min
+    y=f(X)
+    if LEARN_INVERSE:
+        return y,X
+    return X,y
 def get_input_fn(data_set, num_epochs=None, shuffle=False):
     return tf.estimator.inputs.pandas_input_fn(
-            x=pd.DataFrame({k: data_set[k].values for k in FEATURES}),
-            y=pd.Series(data_set[LABEL].values[:,0]),
-            num_epochs=num_epochs,
-            shuffle=shuffle)
+                x=pd.DataFrame({k: data_set[k].values for k in FEATURES}),
+                y=pd.Series(data_set[LABEL].values[:,0]),
+                num_epochs=num_epochs,
+                shuffle=shuffle)
 
 # Network Design
 # --------------
 feature_columns = [tf.feature_column.numeric_column('X', shape=INPUT_SHAPE)]
 
 STEPS_PER_EPOCH = 1000
-EPOCHS = 100
+EPOCHS = 500
 BATCH_SIZE = 1000
+EVAL_RATIO = .1
 
+dropout=0.
+
+## Possible predefined optimizers, at least according to some weird comment on their code...
+# 'Adagrad': Returns an `AdagradOptimizer`.
+# 'Adam': Returns an `AdamOptimizer`.
+# 'Ftrl': Returns an `FtrlOptimizer`.
+# 'RMSProp': Returns an `RMSPropOptimizer`.
+# 'SGD': Returns a `GradientDescentOptimizer`.
+
+list_of_optimizers=[
+             #'Adagrad',# Returns an `AdagradOptimizer`.
+             #'Adam',   # Returns an `AdamOptimizer`.
+             #'Ftrl',   # Returns an `FtrlOptimizer`.
+             #'RMSProp',# Returns an `RMSPropOptimizer`.
+             'SGD'     # Returns a `GradientDescentOptimizer`.
+        ]
 list_of_hl=[
             [16, 16+16, 16+16],
             [16,16,16,16,16],
@@ -77,12 +85,14 @@ list_of_hl=[
             [16+16+16,16+16],
             [8,8]
         ]
-for dropout in [0.,.05,.1]:
+for opt in list_of_optimizers:
     for hidden_layers in list_of_hl:
-        MODEL_PATH='./sin_dnn/'
+        MODEL_PATH='/home/schildi/Documents/PhD/Misc/Tensorflow/trained_networks/sin_sweep_optimizers/'
+        MODEL_PATH+=opt+'_'
         for hl in hidden_layers:
             MODEL_PATH += '%s_' % hl
-        MODEL_PATH += 'D0%s' % (int(dropout*100))
+        MODEL_PATH=MODEL_PATH[:-1]
+        #MODEL_PATH += 'D0%s' % (int(dropout*100))
         logging.info('Saving to %s' % MODEL_PATH)
 
         # Validation and Test Configuration
@@ -91,12 +101,17 @@ for dropout in [0.,.05,.1]:
                                         save_checkpoints_secs=300)
 
         # Building the Network
-        regressor = tf.estimator.DNNRegressor(feature_columns=feature_columns,
-                                        label_dimension=1,
-                                        hidden_units=hidden_layers,
-                                        model_dir=MODEL_PATH,
-                                        dropout=dropout,
-                                        config=test_config)
+        try:
+            regressor = tf.estimator.DNNRegressor(feature_columns=feature_columns,
+                                            label_dimension=1,
+                                            hidden_units=hidden_layers,
+                                            model_dir=MODEL_PATH,
+                                            optimizer=opt,
+                                            dropout=dropout,
+                                            config=test_config)
+        except:
+            print('Something went wrong with the construction, probably it does not find the optimizer: '+opt)
+            continue
 
         # Train it
         if TRAINING:
@@ -105,6 +120,10 @@ for dropout in [0.,.05,.1]:
             STEPS = []	# for plotting
 
             for epoch in range(EPOCHS+1):
+
+                X,y = get_XY(BATCH_SIZE,LEARN_INVERSE=LEARN_INVERSE)
+
+                TRAIN_SET=pd.DataFrame({'X': X, 'y': y})
 
                 # Fit the DNNRegressor (This is where the magic happens!!!)
                 regressor.train(input_fn=get_input_fn(TRAIN_SET), steps=STEPS_PER_EPOCH)
@@ -116,15 +135,15 @@ for dropout in [0.,.05,.1]:
                 
                 # This is just for fun and educational purpose:
                 # Evaluate the DNNRegressor every 10th epoch
-                if epoch%10==0:
+                if epoch%100==0:
+                    X,y = get_XY(int(EVAL_RATIO*BATCH_SIZE),LEARN_INVERSE=LEARN_INVERSE)
+                    TEST_SET=pd.DataFrame({'X': X, 'y': y})
                     eval_dict = regressor.evaluate(input_fn=get_input_fn(TEST_SET, num_epochs=1, shuffle=False))
                     print('Epoch %i: %.5f MSE' % (epoch+1, eval_dict['average_loss']))
             # Now it's trained. We can try to predict some values.
         else:
             logging.info('No training today, just prediction')
             #try:
-            # Prediction
-            y_pred = f(X_plot)
             # Get trained values out of the Network
             if PRINT_VARIABLES:
                 for variable_name in regressor.get_variable_names():
@@ -138,20 +157,25 @@ for dropout in [0.,.05,.1]:
 
             # Final Plot
             if WITHPLOT:
+                #TODO according to the plot, somethings quite wrong...
+                X_plot, y_plot=get_XY(1000)
+                #X_plot = np.linspace(x_min, x_max)
+                #y_plot = f(X_plot)
+                PREDICT_SET=pd.DataFrame({'X': X_plot, 'y':np.array([np.NaN]*len(X_plot))})
                 y_dnn=regressor.predict(input_fn=get_input_fn(PREDICT_SET, num_epochs=1, shuffle=False))
                 y_dnn=list( p['predictions'] for p in y_dnn)
                 fig,(ax1,ax2)=plt.subplots(2,1,sharex=True)
                 plt.sca(ax1)
-                plt.plot(X_plot, y_pred, label='function to predict')
-                plt.plot(X_plot, y_dnn,
+                plt.plot(X_plot, y_plot,'.', label='function to predict')
+                plt.plot(X_plot, y_dnn,'.',
                                 label='DNNRegressor prediction')
                 plt.legend(loc='best')
                 plt.title('%s DNNRegressor' % MODEL_PATH.split('/')[-1])
                 plt.tight_layout()
                 plt.sca(ax2)
                 y_dnn=np.array(y_dnn)[:,0]
-                tmp1=max([max(abs(y_dnn-y_pred)),1e-12])
-                plt.plot(X_plot, y_dnn-y_pred , label='Delta')
+                tmp1=max([max(abs(y_dnn-y_plot)),1e-12])
+                plt.plot(X_plot, y_dnn-y_plot , '.',label='Delta')
                 ax2.set_ylim([-tmp1*1.1,tmp1*1.1])
                 plt.savefig(MODEL_PATH + '.png', dpi=72)
                 plt.close()
