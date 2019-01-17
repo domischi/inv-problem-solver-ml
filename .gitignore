@@ -1,0 +1,5 @@
+# no temporary files 
+*.swp
+
+# ignore old scripts
+old-scripts/
