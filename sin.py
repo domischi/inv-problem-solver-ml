@@ -5,7 +5,7 @@
 # CC-BY-2.0 Paul Balzer
 # see: http://www.cbcity.de/deep-learning-tensorflow-dnnregressor-einfach-erklaert
 #
-TRAINING = True
+TRAINING = False
 #WITHPLOT = False
 WITHPLOT = not TRAINING
 PRINT_VARIABLES=False
@@ -31,6 +31,7 @@ logging.info('Tensorflow %s' % tf.__version__) # 1.4.1
 # This is the magic function which the Deep Neural Network
 # has to 'learn' (see http://neuralnetworksanddeeplearning.com/chap4.html)
 f = lambda x: np.sin(x)
+
 # Generate the 'features'
 INPUT_SHAPE=(1,)
 x_min=-np.pi
@@ -72,11 +73,11 @@ dropout=0.
 # 'SGD': Returns a `GradientDescentOptimizer`.
 
 list_of_optimizers=[
-             #'Adagrad',# Returns an `AdagradOptimizer`.
-             #'Adam',   # Returns an `AdamOptimizer`.
-             #'Ftrl',   # Returns an `FtrlOptimizer`.
-             #'RMSProp',# Returns an `RMSPropOptimizer`.
-             'SGD'     # Returns a `GradientDescentOptimizer`.
+             'Adagrad',# Returns an `AdagradOptimizer`.
+             'Adam',   # Returns an `AdamOptimizer`.
+             'Ftrl',   # Returns an `FtrlOptimizer`.
+             'RMSProp',# Returns an `RMSPropOptimizer`.
+             #'SGD'     # Returns a `GradientDescentOptimizer`.
         ]
 list_of_hl=[
             [16, 16+16, 16+16],
