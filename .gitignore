@@ -1,5 +1,6 @@
 # no temporary files 
 *.swp
+__pycache__/
 
 # ignore old scripts
 old-scripts/
